@@ -27,8 +27,6 @@ func init() {
 }
 
 func TestPlugin(t *testing.T) {
-	t.Skip("This test doesn't work until results are stable https://github.com/99designs/gqlgen/pull/1497")
-
 	xs := chat.NewExecutableSchema(chat.New())
 
 	exec := executor.New(xs)
@@ -36,6 +34,7 @@ func TestPlugin(t *testing.T) {
 		graphql.GetOperationContext(ctx).DisableIntrospection = false
 		return next(ctx)
 	})
+	exec.Use(introspectionfilter.SortPlugin{})
 	exec.Use(introspectionfilter.Plugin{
 		Schema:      xs.Schema(),
 		FieldFilter: func(fd *ast.FieldDefinition) bool { return fd.Name != "text" },
