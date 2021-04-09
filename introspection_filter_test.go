@@ -55,14 +55,14 @@ func TestPlugin(t *testing.T) {
 	}
 
 	data := normalizeJSON(response.Data)
-
-	differ := gojsondiff.New()
-	diff, err := differ.Compare(expectedResult, data)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if !bytes.Equal(expectedResult, data) {
 		var aJson map[string]interface{}
+
+		differ := gojsondiff.New()
+		diff, err := differ.Compare(expectedResult, data)
+		if err != nil {
+			t.Fatal(err)
+		}
 		err = json.Unmarshal(expectedResult, &aJson)
 		if err != nil {
 			t.Fatal(err)
