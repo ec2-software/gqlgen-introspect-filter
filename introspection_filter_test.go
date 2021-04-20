@@ -34,8 +34,7 @@ func TestPlugin(t *testing.T) {
 		return next(ctx)
 	})
 	exec.Use(introspectionfilter.SortPlugin{})
-	exec.Use(introspectionfilter.Plugin{
-		Schema:      xs.Schema(),
+	exec.Use(&introspectionfilter.Plugin{
 		FieldFilter: func(fd *ast.FieldDefinition) bool { return fd.Name != "text" },
 	})
 	ctx := context.Background()

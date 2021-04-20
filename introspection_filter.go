@@ -9,7 +9,8 @@ import (
 )
 
 type Plugin struct {
-	Schema          *ast.Schema
+	schema *ast.Schema
+
 	FieldFilter     FieldFilter
 	TypeFilter      TypeFilter
 	DirectiveFilter DirectiveFilter
@@ -22,21 +23,22 @@ type DirectiveFilter func(*ast.DirectiveDefinition) bool
 type InputFieldFilter func(*ast.FieldDefinition) bool
 type EnumFilter func(*ast.EnumValueDefinition) bool
 
-func (Plugin) ExtensionName() string {
+func (*Plugin) ExtensionName() string {
 	return "IntrospectionFilter"
 }
-func (Plugin) Validate(schema graphql.ExecutableSchema) error {
+func (p *Plugin) Validate(schema graphql.ExecutableSchema) error {
+	p.schema = schema.Schema()
 	return nil
 }
 
-func (p Plugin) InterceptField(ctx context.Context, next graphql.Resolver) (res interface{}, err error) {
+func (p *Plugin) InterceptField(ctx context.Context, next graphql.Resolver) (res interface{}, err error) {
 	res, err = next(ctx)
 	if err != nil {
 		return
 	}
 
 	fc := graphql.GetFieldContext(ctx)
-	schema := p.Schema
+	schema := p.schema
 
 	switch fc.Object {
 	case "__Schema":
@@ -73,7 +75,7 @@ func (p Plugin) InterceptField(ctx context.Context, next graphql.Resolver) (res 
 	return res, err
 }
 
-func (filter Plugin) filterTypes(list []introspection.Type) []introspection.Type {
+func (filter *Plugin) filterTypes(list []introspection.Type) []introspection.Type {
 	if filter.TypeFilter == nil {
 		return list
 	}
@@ -81,7 +83,7 @@ func (filter Plugin) filterTypes(list []introspection.Type) []introspection.Type
 	for _, t := range list {
 		tName := t.Name()
 		if tName != nil {
-			astType := filter.Schema.Types[*tName]
+			astType := filter.schema.Types[*tName]
 			if astType == nil {
 				continue
 			}
@@ -94,13 +96,13 @@ func (filter Plugin) filterTypes(list []introspection.Type) []introspection.Type
 	return fList
 }
 
-func (p Plugin) filterDirectives(list []introspection.Directive) []introspection.Directive {
+func (p *Plugin) filterDirectives(list []introspection.Directive) []introspection.Directive {
 	if p.DirectiveFilter == nil {
 		return list
 	}
 	fList := make([]introspection.Directive, 0, len(list))
 	for _, x := range list {
-		astDirective := p.Schema.Directives[x.Name]
+		astDirective := p.schema.Directives[x.Name]
 		if astDirective == nil {
 			continue
 		}
@@ -112,7 +114,7 @@ func (p Plugin) filterDirectives(list []introspection.Directive) []introspection
 	return fList
 }
 
-func (p Plugin) filterFields(list []introspection.Field, astType *ast.Definition) []introspection.Field {
+func (p *Plugin) filterFields(list []introspection.Field, astType *ast.Definition) []introspection.Field {
 	if p.FieldFilter == nil {
 		return list
 	}
@@ -130,7 +132,7 @@ func (p Plugin) filterFields(list []introspection.Field, astType *ast.Definition
 	return fList
 }
 
-func (p Plugin) filterInputFields(list []introspection.InputValue, astType *ast.Definition) []introspection.InputValue {
+func (p *Plugin) filterInputFields(list []introspection.InputValue, astType *ast.Definition) []introspection.InputValue {
 	if p.FieldFilter == nil {
 		return list
 	}
@@ -148,7 +150,7 @@ func (p Plugin) filterInputFields(list []introspection.InputValue, astType *ast.
 	return fList
 }
 
-func (p Plugin) filterEnumValues(list []introspection.EnumValue, astType *ast.Definition) []introspection.EnumValue {
+func (p *Plugin) filterEnumValues(list []introspection.EnumValue, astType *ast.Definition) []introspection.EnumValue {
 	if p.EnumFilter == nil {
 		return list
 	}
