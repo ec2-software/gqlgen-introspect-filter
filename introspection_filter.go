@@ -17,11 +17,11 @@ type Plugin struct {
 	EnumFilter      EnumFilter
 }
 
-type FieldFilter func(*ast.FieldDefinition) bool
-type TypeFilter func(*ast.Definition) bool
-type DirectiveFilter func(*ast.DirectiveDefinition) bool
-type InputFieldFilter func(*ast.FieldDefinition) bool
-type EnumFilter func(*ast.EnumValueDefinition) bool
+type FieldFilter func(ctx context.Context, d *ast.FieldDefinition) bool
+type TypeFilter func(ctx context.Context, d *ast.Definition) bool
+type DirectiveFilter func(ctx context.Context, d *ast.DirectiveDefinition) bool
+type InputFieldFilter func(ctx context.Context, d *ast.FieldDefinition) bool
+type EnumFilter func(ctx context.Context, d *ast.EnumValueDefinition) bool
 
 func (*Plugin) ExtensionName() string {
 	return "IntrospectionFilter"
@@ -44,9 +44,9 @@ func (p *Plugin) InterceptField(ctx context.Context, next graphql.Resolver) (res
 	case "__Schema":
 		switch fc.Field.Name {
 		case "types":
-			res = p.filterTypes(res.([]introspection.Type))
+			res = p.filterTypes(ctx, res.([]introspection.Type))
 		case "directives":
-			res = p.filterDirectives(res.([]introspection.Directive))
+			res = p.filterDirectives(ctx, res.([]introspection.Directive))
 		}
 	case "__Type":
 		iType := fc.Parent.Result.(*introspection.Type)
@@ -62,20 +62,20 @@ func (p *Plugin) InterceptField(ctx context.Context, next graphql.Resolver) (res
 
 		switch fc.Field.Name {
 		case "fields":
-			res = p.filterFields(res.([]introspection.Field), astType)
+			res = p.filterFields(ctx, res.([]introspection.Field), astType)
 		case "inputFields":
-			res = p.filterInputFields(res.([]introspection.InputValue), astType)
+			res = p.filterInputFields(ctx, res.([]introspection.InputValue), astType)
 		case "possibleTypes":
-			res = p.filterTypes(res.([]introspection.Type))
+			res = p.filterTypes(ctx, res.([]introspection.Type))
 		case "enumValues":
-			res = p.filterEnumValues(res.([]introspection.EnumValue), astType)
+			res = p.filterEnumValues(ctx, res.([]introspection.EnumValue), astType)
 		}
 	}
 
 	return res, err
 }
 
-func (filter *Plugin) filterTypes(list []introspection.Type) []introspection.Type {
+func (filter *Plugin) filterTypes(ctx context.Context, list []introspection.Type) []introspection.Type {
 	if filter.TypeFilter == nil {
 		return list
 	}
@@ -87,7 +87,7 @@ func (filter *Plugin) filterTypes(list []introspection.Type) []introspection.Typ
 			if astType == nil {
 				continue
 			}
-			if !filter.TypeFilter(astType) {
+			if !filter.TypeFilter(ctx, astType) {
 				continue
 			}
 		}
@@ -96,7 +96,7 @@ func (filter *Plugin) filterTypes(list []introspection.Type) []introspection.Typ
 	return fList
 }
 
-func (p *Plugin) filterDirectives(list []introspection.Directive) []introspection.Directive {
+func (p *Plugin) filterDirectives(ctx context.Context, list []introspection.Directive) []introspection.Directive {
 	if p.DirectiveFilter == nil {
 		return list
 	}
@@ -106,7 +106,7 @@ func (p *Plugin) filterDirectives(list []introspection.Directive) []introspectio
 		if astDirective == nil {
 			continue
 		}
-		if !p.DirectiveFilter(astDirective) {
+		if !p.DirectiveFilter(ctx, astDirective) {
 			continue
 		}
 		fList = append(fList, x)
@@ -114,7 +114,7 @@ func (p *Plugin) filterDirectives(list []introspection.Directive) []introspectio
 	return fList
 }
 
-func (p *Plugin) filterFields(list []introspection.Field, astType *ast.Definition) []introspection.Field {
+func (p *Plugin) filterFields(ctx context.Context, list []introspection.Field, astType *ast.Definition) []introspection.Field {
 	if p.FieldFilter == nil {
 		return list
 	}
@@ -124,7 +124,7 @@ func (p *Plugin) filterFields(list []introspection.Field, astType *ast.Definitio
 		if astField == nil {
 			continue
 		}
-		if !p.FieldFilter(astField) {
+		if !p.FieldFilter(ctx, astField) {
 			continue
 		}
 		fList = append(fList, x)
@@ -132,7 +132,7 @@ func (p *Plugin) filterFields(list []introspection.Field, astType *ast.Definitio
 	return fList
 }
 
-func (p *Plugin) filterInputFields(list []introspection.InputValue, astType *ast.Definition) []introspection.InputValue {
+func (p *Plugin) filterInputFields(ctx context.Context, list []introspection.InputValue, astType *ast.Definition) []introspection.InputValue {
 	if p.FieldFilter == nil {
 		return list
 	}
@@ -142,7 +142,7 @@ func (p *Plugin) filterInputFields(list []introspection.InputValue, astType *ast
 		if astField == nil {
 			continue
 		}
-		if !p.FieldFilter(astField) {
+		if !p.FieldFilter(ctx, astField) {
 			continue
 		}
 		fList = append(fList, x)
@@ -150,7 +150,7 @@ func (p *Plugin) filterInputFields(list []introspection.InputValue, astType *ast
 	return fList
 }
 
-func (p *Plugin) filterEnumValues(list []introspection.EnumValue, astType *ast.Definition) []introspection.EnumValue {
+func (p *Plugin) filterEnumValues(ctx context.Context, list []introspection.EnumValue, astType *ast.Definition) []introspection.EnumValue {
 	if p.EnumFilter == nil {
 		return list
 	}
@@ -160,7 +160,7 @@ func (p *Plugin) filterEnumValues(list []introspection.EnumValue, astType *ast.D
 		if astEnum == nil {
 			continue
 		}
-		if !p.EnumFilter(astEnum) {
+		if !p.EnumFilter(ctx, astEnum) {
 			continue
 		}
 		fList = append(fList, x)
