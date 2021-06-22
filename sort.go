@@ -26,8 +26,8 @@ func (SortPlugin) InterceptField(ctx context.Context, next graphql.Resolver) (re
 
 	fc := graphql.GetFieldContext(ctx)
 
-	// _ is reserved for introspection types
-	if strings.HasPrefix(fc.Object, "_") {
+	// __ is reserved for introspection types
+	if strings.HasPrefix(fc.Object, "__") {
 		switch x := res.(type) {
 		case []introspection.Type:
 			sort.SliceStable(x, func(i, j int) bool {
