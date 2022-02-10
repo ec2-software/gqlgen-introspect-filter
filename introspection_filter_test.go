@@ -1,31 +1,21 @@
 package introspectionfilter_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/99designs/gqlgen/example/chat"
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/executor"
 	"github.com/99designs/gqlgen/graphql/introspection"
+	"github.com/bradleyjkemp/cupaloy"
 	introspectionfilter "github.com/ec2-software/gqlgen-introspect-filter"
+	"github.com/ec2-software/gqlgen-introspect-filter/internal/chat"
 	"github.com/vektah/gqlparser/v2/ast"
-	"github.com/yudai/gojsondiff"
-	"github.com/yudai/gojsondiff/formatter"
 )
 
 func TestPlugin(t *testing.T) {
-	d, err := ioutil.ReadFile("testdata/expected_result.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	expectedResult := normalizeJSON(d)
-
 	xs := chat.NewExecutableSchema(chat.New())
 
 	exec := executor.New(xs)
@@ -52,30 +42,8 @@ func TestPlugin(t *testing.T) {
 		t.Fatal(response.Errors)
 	}
 
-	data := normalizeJSON(response.Data)
-	if !bytes.Equal(expectedResult, data) {
-		var aJson map[string]interface{}
-
-		differ := gojsondiff.New()
-		diff, err := differ.Compare(expectedResult, data)
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = json.Unmarshal(expectedResult, &aJson)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		// Write the results for easy comparison
-		_ = ioutil.WriteFile("result.json", data, os.ModePerm)
-
-		f := formatter.NewAsciiFormatter(aJson, formatter.AsciiFormatterDefaultConfig)
-		res, err := f.Format(diff)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Error(res)
-	}
+	snapshotter := cupaloy.New(cupaloy.SnapshotSubdirectory("testdata"), cupaloy.SnapshotFileExtension(".json"))
+	snapshotter.SnapshotT(t, normalizeJSON(response.Data))
 }
 
 func normalizeJSON(in []byte) []byte {
