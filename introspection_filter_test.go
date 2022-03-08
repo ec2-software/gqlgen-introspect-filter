@@ -23,7 +23,6 @@ func TestPlugin(t *testing.T) {
 		graphql.GetOperationContext(ctx).DisableIntrospection = false
 		return next(ctx)
 	})
-	exec.Use(introspectionfilter.SortPlugin{})
 	exec.Use(&introspectionfilter.Plugin{
 		FieldFilter: func(ctx context.Context, fd *ast.FieldDefinition) bool { return fd.Name != "text" },
 	})
