@@ -8,45 +8,44 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-type Plugin struct {
-	schema *ast.Schema
+var schema *ast.Schema
 
-	FieldFilter     FieldFilter
-	TypeFilter      TypeFilter
-	DirectiveFilter DirectiveFilter
-	EnumFilter      EnumFilter
+type Extension struct {
+	ReturnField     FieldFilter
+	ReturnType      TypeFilter
+	ReturnDirective DirectiveFilter
+	ReturnFilter    EnumFilter
 }
 
-type FieldFilter func(ctx context.Context, d *ast.FieldDefinition) bool
+type FieldFilter func(ctx context.Context, fd *ast.FieldDefinition, d *ast.Definition) bool
 type TypeFilter func(ctx context.Context, d *ast.Definition) bool
-type DirectiveFilter func(ctx context.Context, d *ast.DirectiveDefinition) bool
-type InputFieldFilter func(ctx context.Context, d *ast.FieldDefinition) bool
-type EnumFilter func(ctx context.Context, d *ast.EnumValueDefinition) bool
+type DirectiveFilter func(ctx context.Context, dd *ast.DirectiveDefinition) bool
+type InputFieldFilter func(ctx context.Context, fd *ast.FieldDefinition) bool
+type EnumFilter func(ctx context.Context, ed *ast.EnumValueDefinition) bool
 
-func (*Plugin) ExtensionName() string {
+func (e Extension) ExtensionName() string {
 	return "IntrospectionFilter"
 }
-func (p *Plugin) Validate(schema graphql.ExecutableSchema) error {
-	p.schema = schema.Schema()
+func (e Extension) Validate(s graphql.ExecutableSchema) error {
+	schema = s.Schema()
 	return nil
 }
 
-func (p *Plugin) InterceptField(ctx context.Context, next graphql.Resolver) (res interface{}, err error) {
+func (e Extension) InterceptField(ctx context.Context, next graphql.Resolver) (res interface{}, err error) {
 	res, err = next(ctx)
 	if err != nil {
 		return
 	}
 
 	fc := graphql.GetFieldContext(ctx)
-	schema := p.schema
 
 	switch fc.Object {
 	case "__Schema":
 		switch fc.Field.Name {
 		case "types":
-			res = p.filterTypes(ctx, res.([]introspection.Type))
+			res = e.filterTypes(ctx, res.([]introspection.Type))
 		case "directives":
-			res = p.filterDirectives(ctx, res.([]introspection.Directive))
+			res = e.filterDirectives(ctx, res.([]introspection.Directive))
 		}
 	case "__Type":
 		iType := fc.Parent.Result.(*introspection.Type)
@@ -62,32 +61,32 @@ func (p *Plugin) InterceptField(ctx context.Context, next graphql.Resolver) (res
 
 		switch fc.Field.Name {
 		case "fields":
-			res = p.filterFields(ctx, res.([]introspection.Field), astType)
+			res = e.filterFields(ctx, res.([]introspection.Field), astType)
 		case "inputFields":
-			res = p.filterInputFields(ctx, res.([]introspection.InputValue), astType)
+			res = e.filterInputFields(ctx, res.([]introspection.InputValue), astType)
 		case "possibleTypes":
-			res = p.filterTypes(ctx, res.([]introspection.Type))
+			res = e.filterTypes(ctx, res.([]introspection.Type))
 		case "enumValues":
-			res = p.filterEnumValues(ctx, res.([]introspection.EnumValue), astType)
+			res = e.filterEnumValues(ctx, res.([]introspection.EnumValue), astType)
 		}
 	}
 
 	return res, err
 }
 
-func (filter *Plugin) filterTypes(ctx context.Context, list []introspection.Type) []introspection.Type {
-	if filter.TypeFilter == nil {
+func (e Extension) filterTypes(ctx context.Context, list []introspection.Type) []introspection.Type {
+	if e.ReturnType == nil {
 		return list
 	}
 	fList := make([]introspection.Type, 0, len(list))
 	for _, t := range list {
 		tName := t.Name()
 		if tName != nil {
-			astType := filter.schema.Types[*tName]
+			astType := schema.Types[*tName]
 			if astType == nil {
 				continue
 			}
-			if !filter.TypeFilter(ctx, astType) {
+			if !e.ReturnType(ctx, astType) {
 				continue
 			}
 		}
@@ -96,17 +95,17 @@ func (filter *Plugin) filterTypes(ctx context.Context, list []introspection.Type
 	return fList
 }
 
-func (p *Plugin) filterDirectives(ctx context.Context, list []introspection.Directive) []introspection.Directive {
-	if p.DirectiveFilter == nil {
+func (e Extension) filterDirectives(ctx context.Context, list []introspection.Directive) []introspection.Directive {
+	if e.ReturnDirective == nil {
 		return list
 	}
 	fList := make([]introspection.Directive, 0, len(list))
 	for _, x := range list {
-		astDirective := p.schema.Directives[x.Name]
+		astDirective := schema.Directives[x.Name]
 		if astDirective == nil {
 			continue
 		}
-		if !p.DirectiveFilter(ctx, astDirective) {
+		if !e.ReturnDirective(ctx, astDirective) {
 			continue
 		}
 		fList = append(fList, x)
@@ -114,8 +113,8 @@ func (p *Plugin) filterDirectives(ctx context.Context, list []introspection.Dire
 	return fList
 }
 
-func (p *Plugin) filterFields(ctx context.Context, list []introspection.Field, astType *ast.Definition) []introspection.Field {
-	if p.FieldFilter == nil {
+func (e Extension) filterFields(ctx context.Context, list []introspection.Field, astType *ast.Definition) []introspection.Field {
+	if e.ReturnField == nil {
 		return list
 	}
 	fList := make([]introspection.Field, 0, len(list))
@@ -124,7 +123,7 @@ func (p *Plugin) filterFields(ctx context.Context, list []introspection.Field, a
 		if astField == nil {
 			continue
 		}
-		if !p.FieldFilter(ctx, astField) {
+		if !e.ReturnField(ctx, astField, astType) {
 			continue
 		}
 		fList = append(fList, x)
@@ -132,8 +131,8 @@ func (p *Plugin) filterFields(ctx context.Context, list []introspection.Field, a
 	return fList
 }
 
-func (p *Plugin) filterInputFields(ctx context.Context, list []introspection.InputValue, astType *ast.Definition) []introspection.InputValue {
-	if p.FieldFilter == nil {
+func (e Extension) filterInputFields(ctx context.Context, list []introspection.InputValue, astType *ast.Definition) []introspection.InputValue {
+	if e.ReturnField == nil {
 		return list
 	}
 	fList := make([]introspection.InputValue, 0, len(list))
@@ -142,7 +141,7 @@ func (p *Plugin) filterInputFields(ctx context.Context, list []introspection.Inp
 		if astField == nil {
 			continue
 		}
-		if !p.FieldFilter(ctx, astField) {
+		if !e.ReturnField(ctx, astField, astType) {
 			continue
 		}
 		fList = append(fList, x)
@@ -150,8 +149,8 @@ func (p *Plugin) filterInputFields(ctx context.Context, list []introspection.Inp
 	return fList
 }
 
-func (p *Plugin) filterEnumValues(ctx context.Context, list []introspection.EnumValue, astType *ast.Definition) []introspection.EnumValue {
-	if p.EnumFilter == nil {
+func (e Extension) filterEnumValues(ctx context.Context, list []introspection.EnumValue, astType *ast.Definition) []introspection.EnumValue {
+	if e.ReturnFilter == nil {
 		return list
 	}
 	fList := make([]introspection.EnumValue, 0, len(list))
@@ -160,7 +159,7 @@ func (p *Plugin) filterEnumValues(ctx context.Context, list []introspection.Enum
 		if astEnum == nil {
 			continue
 		}
-		if !p.EnumFilter(ctx, astEnum) {
+		if !e.ReturnFilter(ctx, astEnum) {
 			continue
 		}
 		fList = append(fList, x)
