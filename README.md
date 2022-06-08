@@ -15,7 +15,7 @@ import (
 exec := handler.NewDefaultServer(
 	server.NewExecutableSchema(
         server.Config{Resolvers: resolvers},
-	),
+    ),
 )
 
 // Use as a GQLGen plugin
