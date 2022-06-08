@@ -13,7 +13,7 @@ import (
 
 // Create the default GQLGen server
 exec := handler.NewDefaultServer(
-	server.NewExecutableSchema(
+    server.NewExecutableSchema(
         server.Config{Resolvers: resolvers},
     ),
 )
