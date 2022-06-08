@@ -19,7 +19,7 @@ exec := handler.NewDefaultServer(
 )
 
 // Use as a GQLGen plugin
-exec.Use(introspectionfilter.Plugin{
+exec.Use(introspectionfilter.Extension{
 	// Write filter functions to choose if various parts are included.
 	ReturnField: func(ctx context.Context, fd *ast.FieldDefinition, d *ast.Definition) bool { 
 		return fd.Name != "text" 
